@@ -1,0 +1,6 @@
+tornado>=4.4.2,<5.0
+redis>=3.0
+sqlalchemy
+sqlalchemy-migrate
+apscheduler
+six>=1.12
