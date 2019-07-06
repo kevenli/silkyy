@@ -28,7 +28,7 @@ class SpiderRunTest(ServiceTestBase):
     def test_run(self):
         project_name = 'test_project'
         spider_name = 'test_spider'
-        spider_seen_key = '%(project)s:%(spider)s:seen' % {'project': project_name, 'spider': spider_name}
+        spider_seen_key = ':%(project)s:%(spider)s:seen' % {'project': project_name, 'spider': spider_name}
         redis_conn = redis.StrictRedis(decode_responses=True)
         redis_conn.delete(spider_seen_key)
 
@@ -38,7 +38,7 @@ class SpiderRunTest(ServiceTestBase):
         self.assertEqual(200, response.code)
         run_id = int(response.body)
 
-        run_seen_key = '%(project)s:%(spider)s:%(run)s:seen' % {'project': project_name, 'spider': spider_name,
+        run_seen_key = ':%(project)s:%(spider)s:%(run)s:seen' % {'project': project_name, 'spider': spider_name,
                                                                 'run': run_id}
         # if run is not complete, run_seen_set should have a ttl >0 and < 86400 (24 hours)
         self.assertTrue(0 < redis_conn.ttl(run_seen_key) <= 86400)
@@ -59,14 +59,14 @@ class SpiderRunTest(ServiceTestBase):
         self.assertEqual(redis_conn.zrange(spider_seen_key, 0, -1), [str(x) for x in range(item_count)])
 
         # run seen set should not exists when complete
-        run_seen_key = '%(project)s:%(spider)s:%(run)s:seen' % {'project': project_name, 'spider': spider_name,
+        run_seen_key = ':%(project)s:%(spider)s:%(run)s:seen' % {'project': project_name, 'spider': spider_name,
                                                                 'run': run_id}
         self.assertEqual(0, redis_conn.exists(run_seen_key))
 
     def test_merge_when_complete(self):
         project_name = 'test_project'
         spider_name = 'test_spider'
-        spider_seen_key = '%(project)s:%(spider)s:seen' % {'project': project_name, 'spider': spider_name}
+        spider_seen_key = ':%(project)s:%(spider)s:seen' % {'project': project_name, 'spider': spider_name}
         redis_conn = redis.StrictRedis(decode_responses=True)
         redis_conn.delete(spider_seen_key)
         redis_conn.zadd(spider_seen_key, {str(x): 0 for x in range(3,10)})
@@ -76,7 +76,7 @@ class SpiderRunTest(ServiceTestBase):
         self.assertEqual(200, response.code)
         run_id = int(response.body)
 
-        run_seen_key = '%(project)s:%(spider)s:%(run)s:seen' % {'project': project_name, 'spider': spider_name,
+        run_seen_key = ':%(project)s:%(spider)s:%(run)s:seen' % {'project': project_name, 'spider': spider_name,
                                                                 'run': run_id}
         # if run is not complete, run_seen_set should have a ttl >0 and < 86400 (24 hours)
         self.assertTrue(0 < redis_conn.ttl(run_seen_key) <= 86400)
@@ -98,7 +98,7 @@ class SpiderRunTest(ServiceTestBase):
                          {str(x) for x in range(item_count)}.union({str(x) for x in range(3, 10)}))
 
         # run seen set should not exists when complete
-        run_seen_key = '%(project)s:%(spider)s:%(run)s:seen' % {'project': project_name, 'spider': spider_name,
+        run_seen_key = ':%(project)s:%(spider)s:%(run)s:seen' % {'project': project_name, 'spider': spider_name,
                                                                 'run': run_id}
         self.assertEqual(0, redis_conn.exists(run_seen_key))
 

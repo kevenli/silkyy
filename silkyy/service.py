@@ -16,7 +16,7 @@ from apscheduler.schedulers.tornado import TornadoScheduler
 import re
 from .process import fork_processes
 from .idworker import IdWorker
-
+from .appcontext import ApplicationContextProvider, DatabaseApplicationContextProvider, api_request_validate
 log_dir = 'logs'
 log_file = 'silkyy.log'
 log_level = logging.INFO
@@ -122,6 +122,7 @@ class SpiderDuptfilterFlush(tornado.web.RequestHandler):
 
 
 class SpiderHandler(JSONBaseHandler):
+    @api_request_validate
     def put(self, project, spider):
         with session_scope() as session:
             spider_obj = session.query(Spider)\
@@ -136,6 +137,7 @@ class SpiderHandler(JSONBaseHandler):
                 session.commit()
                 session.refresh(spider_obj)
 
+    @api_request_validate
     def get(self, project, spider):
         with session_scope() as session:
             spider_obj = session.query(Spider) \
@@ -232,16 +234,22 @@ class SpiderSettingsInstanceHandler(tornado.web.RequestHandler):
 
             self.write(spider_setting.setting_value)
 
+
 class SpiderRunHandler(tornado.web.RequestHandler):
     def initialize(self, redis_conn, id_worker):
         self.redis_conn = redis_conn
         self.id_worker = id_worker
 
+    @api_request_validate
     def post(self, project_name, spider_name):
-        spider_seen_key = '%(project)s:%(spider)s:seen' % {'project': project_name, 'spider': spider_name}
+        spider_seen_key = '%(app_id)s:%(project)s:%(spider)s:seen' % {'project': project_name,
+                                                                      'spider': spider_name,
+                                                                      'app_id': self.app_id}
         run_id = self.id_worker.get_id('run')
-        run_seen_key = '%(project)s:%(spider)s:%(run)d:seen' % {'project': project_name, 'spider': spider_name,
-                                                               'run': run_id}
+        run_seen_key = '%(app_id)s:%(project)s:%(spider)s:%(run)d:seen' % {'project': project_name,
+                                                                            'spider': spider_name,
+                                                                            'run': run_id,
+                                                                           'app_id': self.app_id}
         pipe = self.redis_conn.pipeline()
         pipe.zunionstore(run_seen_key, [spider_seen_key], aggregate='max')
         pipe.zadd(run_seen_key, {"": 0})
@@ -255,13 +263,17 @@ class SpiderRunDuptfilter(tornado.web.RequestHandler):
     def initialize(self, redis_conn):
         self.redis_conn = redis_conn
 
+    @api_request_validate
     def post(self, project_name, spider_name, run_id):
         item = self.get_argument('item')
         assert item is not None
         timestamp = int(time.time())
+        run_id = int(run_id)
 
-        run_seen_key = '%(project)s:%(spider)s:%(run)s:seen' % {'project': project_name, 'spider': spider_name,
-                                                                'run': run_id}
+        run_seen_key = '%(app_id)s:%(project)s:%(spider)s:%(run)d:seen' % {'project': project_name,
+                                                                            'spider': spider_name,
+                                                                            'run': run_id,
+                                                                           'app_id': self.app_id}
         if not self.redis_conn.exists(run_seen_key):
             self.set_status(400)
             self.write('Run dose not exist.')
@@ -271,14 +283,21 @@ class SpiderRunDuptfilter(tornado.web.RequestHandler):
         added = self.redis_conn.zadd(run_seen_key, {item: timestamp}, nx=True)
         self.write(str(added))
 
+
 class SpiderRunComplete(tornado.web.RequestHandler):
     def initialize(self, redis_conn):
         self.redis_conn = redis_conn
 
+    @api_request_validate
     def post(self, project_name, spider_name, run_id):
-        run_seen_key = '%(project)s:%(spider)s:%(run)s:seen' % {'project': project_name, 'spider': spider_name,
-                                                                'run': run_id}
-        spider_seen_key = '%(project)s:%(spider)s:seen' % {'project': project_name, 'spider': spider_name}
+        run_id = int(run_id)
+        run_seen_key = '%(app_id)s:%(project)s:%(spider)s:%(run)d:seen' % {'project': project_name,
+                                                                            'spider': spider_name,
+                                                                            'run': run_id,
+                                                                           'app_id': self.app_id}
+        spider_seen_key = '%(app_id)s:%(project)s:%(spider)s:seen' % {'project': project_name,
+                                                                      'spider': spider_name,
+                                                                      'app_id': self.app_id}
         pipe = self.redis_conn.pipeline()
         # remove space holder
         pipe.zrem(run_seen_key, "")
@@ -288,7 +307,10 @@ class SpiderRunComplete(tornado.web.RequestHandler):
         pipe.delete(run_seen_key)
         pipe.execute()
 
-def make_app(redis_conn, config, id_worker):
+def make_app(redis_conn, config, id_worker, app_context_provider=None):
+    if app_context_provider is None:
+        app_context_provider = ApplicationContextProvider()
+
     return tornado.web.Application([
         ('/visited/([\w_]+)', VisitedHistory, {'config': config}),
         ('^/s/([\w_]+)/([\w_]+)/dupefilter$', SpiderDuptfilter, {'redis_conn': redis_conn}),
@@ -300,7 +322,7 @@ def make_app(redis_conn, config, id_worker):
         ('^/s/([\w_]+)/([\w_]+)$', SpiderHandler),
         ('^/s/([\w_]+)/([\w_]+)/settings$', SpiderSettingsHandler),
         ('^/s/([\w_]+)/([\w_]+)/settings/([\w_]+)$', SpiderSettingsInstanceHandler),
-    ])
+    ], app_context_provider=app_context_provider)
 
 
 def run():
@@ -323,9 +345,9 @@ def run():
     redis_conn = redis.StrictRedis.from_url(config.get('redis_url'), decode_responses=True)
 
     id_worker = IdWorker(1, task_id)
-
+    app_context_provider = ApplicationContextProvider()
     init_ttl_clear_scheduler(redis_conn)
-    app = make_app(redis_conn, config, id_worker)
+    app = make_app(redis_conn, config, id_worker, app_context_provider)
     server = tornado.httpserver.HTTPServer(app)
     server.add_sockets(sockets)
     logger.info('Listening on %s:%s' % (bind_address, bind_port))
