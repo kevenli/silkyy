@@ -2,7 +2,7 @@ import logging
 
 from scrapy.dupefilters import BaseDupeFilter
 from scrapy.utils.request import request_fingerprint
-from silkyy.client import SilkyyClient
+from ...client import SilkyyClient
 
 logger = logging.getLogger(__name__)
 
