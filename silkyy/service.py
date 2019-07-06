@@ -7,7 +7,6 @@ from .config import Config
 import hashlib
 import json
 import datetime
-from .storage import build_storage
 import redis
 import time
 from .model import init_database, session_scope
@@ -70,33 +69,6 @@ def init_logging():
 
     logger.setLevel(log_level)
 
-class VisitedHistory(tornado.web.RequestHandler):
-    def initialize(self, config):
-        self.config = config
-        self.storage = build_storage(self.config.get('database_url'))
-
-    def row_to_json(self, row):
-        row_dict = {field.name:value for field, value in row.values.items()}
-        return json.dumps(row_dict, ensure_ascii=False, cls=CJsonEncoder)
-
-    def get(self, queue_name):
-        target_url = self.get_argument('url')
-        project = queue_name
-        spider = self.get_argument('spider', None)
-        record = self.storage.get_visited(project, request_key=target_url, spider=spider)
-        if record:
-            self.write(json.dumps({"last_timestamp":record}))
-        else:
-            self.set_status(404, 'history not found.')
-
-    def post(self, queue_name):
-        target_url = self.get_argument('url')
-        project = queue_name
-        spider = self.get_argument('spider', None)
-        self.storage.set_visited(project, request_key=target_url, spider=spider)
-
-    def put(self, queue_name):
-        return self.post(queue_name)
 
 class SpiderDuptfilter(tornado.web.RequestHandler):
     def initialize(self, redis_conn):
@@ -136,6 +108,8 @@ class SpiderHandler(JSONBaseHandler):
                 session.add(spider_obj)
                 session.commit()
                 session.refresh(spider_obj)
+            self.set_header('Content-Type', 'application/json')
+            self.write(json.dumps({'project': spider_obj.project, 'name': spider_obj.spider_name}))
 
     @api_request_validate
     def get(self, project, spider):
@@ -148,10 +122,12 @@ class SpiderHandler(JSONBaseHandler):
                 self.set_status(404, 'not found')
                 return
 
-            response = {'spider': {'project': spider_obj.project, 'spider_name': spider_obj.spider_name},
-                        'settings': [{'key': setting.setting_key,'value':setting.setting_value } for setting in spider_obj.settings]}
+            #response = {'spider': {'project': spider_obj.project, 'spider_name': spider_obj.spider_name},
+            #            'settings': [{'key': setting.setting_key,'value':setting.setting_value } for setting in spider_obj.settings]}
+            #=self.set_header('Content-Type', 'application/json')
             self.set_header('Content-Type', 'application/json')
-            self.write(json.dumps(response))
+            self.write(json.dumps({'project': spider_obj.project, 'name': spider_obj.spider_name}))
+
 
 
 def init_ttl_clear_scheduler(redis_conn):
@@ -307,21 +283,31 @@ class SpiderRunComplete(tornado.web.RequestHandler):
         pipe.delete(run_seen_key)
         pipe.execute()
 
-def make_app(redis_conn, config, id_worker, app_context_provider=None):
+def make_app(redis_conn, config, id_worker=None, app_context_provider=None):
     if app_context_provider is None:
         app_context_provider = ApplicationContextProvider()
 
+    if id_worker is None:
+        id_worker = IdWorker(1, 1)
+
     return tornado.web.Application([
-        ('/visited/([\w_]+)', VisitedHistory, {'config': config}),
-        ('^/s/([\w_]+)/([\w_]+)/dupefilter$', SpiderDuptfilter, {'redis_conn': redis_conn}),
+        ('^/s/([\w_]+)/([\w_]+)$', SpiderHandler),
+        ('^/s/([\w_]+)/([\w_]+)/settings$', SpiderSettingsHandler),
+        ('^/s/([\w_]+)/([\w_]+)/settings/([\w_]+)$', SpiderSettingsInstanceHandler),
         ('^/s/([\w_]+)/([\w_]+)/run$', SpiderRunHandler, {'redis_conn': redis_conn, 'id_worker': id_worker}),
         ('^/s/([\w_]+)/([\w_]+)/run/(\d+)/seen$', SpiderRunDuptfilter, {'redis_conn': redis_conn}),
         ('^/s/([\w_]+)/([\w_]+)/run/(\d+)/complete$', SpiderRunComplete, {'redis_conn': redis_conn}),
         ('^/s/([\w_]+)/([\w_]+)/seen$', SpiderDuptfilter, {'redis_conn': redis_conn}),
         ('^/s/([\w_]+)/([\w_]+)/seen/flush$', SpiderDuptfilterFlush, {'redis_conn': redis_conn}),
-        ('^/s/([\w_]+)/([\w_]+)$', SpiderHandler),
-        ('^/s/([\w_]+)/([\w_]+)/settings$', SpiderSettingsHandler),
-        ('^/s/([\w_]+)/([\w_]+)/settings/([\w_]+)$', SpiderSettingsInstanceHandler),
+
+        ('^/api/v1/s/([\w_]+)/([\w_]+)$', SpiderHandler),
+        ('^/api/v1/s/([\w_]+)/([\w_]+)/settings$', SpiderSettingsHandler),
+        ('^/api/v1/s/([\w_]+)/([\w_]+)/settings/([\w_]+)$', SpiderSettingsInstanceHandler),
+        ('^/api/v1/s/([\w_]+)/([\w_]+)/run$', SpiderRunHandler, {'redis_conn': redis_conn, 'id_worker': id_worker}),
+        ('^/api/v1/s/([\w_]+)/([\w_]+)/run/(\d+)/seen$', SpiderRunDuptfilter, {'redis_conn': redis_conn}),
+        ('^/api/v1/s/([\w_]+)/([\w_]+)/run/(\d+)/complete$', SpiderRunComplete, {'redis_conn': redis_conn}),
+        ('^/api/v1/s/([\w_]+)/([\w_]+)/seen$', SpiderDuptfilter, {'redis_conn': redis_conn}),
+        ('^/api/v1/s/([\w_]+)/([\w_]+)/seen/flush$', SpiderDuptfilterFlush, {'redis_conn': redis_conn}),
     ], app_context_provider=app_context_provider)
 
 
@@ -332,8 +318,6 @@ def run():
 
     bind_address = config.get('bind_address')
     bind_port = config.getint('bind_port')
-    database_url = config.get('database_url')
-
 
     sockets = tornado.netutil.bind_sockets(bind_port, bind_address)
     fork_count = 1
