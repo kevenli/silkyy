@@ -37,6 +37,14 @@ class Spider(object):
         run_id = self.client._request_json(url, method='POST')
         return SpiderRun(self, run_id)
 
+    def settings(self, **kwargs):
+        url = 'api/v1/s/%(project)s/%(spider)s/settings' % {"project": self.project, 'spider': self.name}
+        if kwargs:
+            data = json.dumps(kwargs)
+            return self.client._request_json(url, method='PATCH', data=data)
+        else:
+            return self.client._request_json(url, method='GET')
+
 class SpiderRun(object):
     def __init__(self, spider, run_id):
         self.spider = spider

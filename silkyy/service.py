@@ -171,6 +171,34 @@ class SpiderSettingsHandler(tornado.web.RequestHandler):
             self.set_header('Content-Type', 'application/json')
             self.write(json.dumps(response))
 
+    def patch(self, project, spider):
+        patch_settings = json.loads(self.request.body)
+        with session_scope() as session:
+            spider_obj = session.query(Spider) \
+                .filter_by(project=project, spider_name=spider) \
+                .first()
+
+            if spider_obj is None:
+                self.set_status(404, 'not found')
+                return
+
+            for setting_key, setting_value in patch_settings.items():
+                spider_setting = session.query(SpiderSettings).filter_by(spider_id = spider_obj.id, setting_key = setting_key).first()
+                if spider_setting is None:
+                    spider_setting = SpiderSettings()
+                    spider_setting.spider_id = spider_obj.id
+                    spider_setting.setting_key = setting_key
+                spider_setting.setting_value = self.request.body
+                session.add(spider_setting)
+                session.commit()
+
+            #settings = session.query(SpiderSettings).filter_by(spider_id = spider_obj.id).all()
+            response = {
+                'settings': [{'key': setting.setting_key, 'value': setting.setting_value} for setting in
+                             spider_obj.settings]}
+            self.set_header('Content-Type', 'application/json')
+            self.write(json.dumps(response))
+
 
 class SpiderSettingsInstanceHandler(tornado.web.RequestHandler):
     def put(self, project, spider, setting_key):

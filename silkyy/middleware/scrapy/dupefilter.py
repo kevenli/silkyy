@@ -22,7 +22,14 @@ class SilkyyDupeFilter(BaseDupeFilter):
 
     @classmethod
     def from_settings(cls, settings):
-        logger.info('SSSDupeFilter from_settings')
+        '''
+        This method is for older scrapy version which does not support
+        a spider context when building a dupefilter instance. The spider name
+        will be assumed as 'spider'
+        :param settings:
+        :return:
+        '''
+        logger.info('SilkyyDupeFilter from_settings')
         project = settings.get('BOT_NAME')
         spider = 'spider'
         client = SilkyyClient(settings.get('SILKYY_BASEURL'))
@@ -30,7 +37,7 @@ class SilkyyDupeFilter(BaseDupeFilter):
 
     @classmethod
     def from_crawler(cls, crawler):
-        logger.info('SSSDupeFilter from_crawler')
+        logger.info('SilkyyDupeFilter from_crawler')
         return cls.from_spider(crawler.spider)
 
     @classmethod
@@ -76,7 +83,7 @@ class SilkyyDupeFilter(BaseDupeFilter):
     def open(self):
         seen_expire = '7d'
         self.silkyy_spider = self.client.spider(self.project, self.spider)
-        self.silkyy_spider.update_settings({'seen_expire', seen_expire})
+        self.silkyy_spider.settings(seen_expire=seen_expire)
         self.silkyy_spider_run = self.silkyy_spider.run()
 
     def close(self, reason=''):
