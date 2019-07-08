@@ -112,4 +112,24 @@ class SpiderRunTest(ServiceTestBase):
         response = self.fetch(spider_run_seen_url, method='POST', body=urlencode(post_data))
         self.assertEqual(400, response.code)
 
+    def test_update_spider_settings(self):
+        project_name = 'test_project'
+        spider_name = 'test_spider'
+        response = self.fetch('/api/v1/s/%s/%s' % (project_name, spider_name), method='PUT', body='')
+        self.assertEqual(200, response.code)
+        spider_settings_url = '/api/v1/s/%s/%s/settings' % (project_name, spider_name)
+
+        test_settings = {'a': '123', 'some_other_setting': 'some very long settings value'}
+
+        response = self.fetch(spider_settings_url, method='PATCH', body=json.dumps(test_settings))
+        self.assertEqual(200, response.code)
+        updated_settings = json.loads(response.body, )['settings']
+
+        self.assertEqual(test_settings, updated_settings)
+
+        response = self.fetch(spider_settings_url, method='GET')
+        self.assertEqual(200, response.code)
+        get_settings = json.loads(response.body)['settings']
+        self.assertEqual(test_settings, get_settings)
+
 

@@ -167,7 +167,9 @@ class SpiderSettingsHandler(tornado.web.RequestHandler):
                 return
 
             response = {
-                        'settings': [{'key': setting.setting_key,'value':setting.setting_value } for setting in spider_obj.settings]}
+                'settings': {setting.setting_key: setting.setting_value for setting in
+                             spider_obj.settings}
+            }
             self.set_header('Content-Type', 'application/json')
             self.write(json.dumps(response))
 
@@ -194,8 +196,9 @@ class SpiderSettingsHandler(tornado.web.RequestHandler):
 
             #settings = session.query(SpiderSettings).filter_by(spider_id = spider_obj.id).all()
             response = {
-                'settings': [{'key': setting.setting_key, 'value': setting.setting_value} for setting in
-                             spider_obj.settings]}
+                'settings': {setting.setting_key:setting.setting_value for setting in
+                             spider_obj.settings}
+            }
             self.set_header('Content-Type', 'application/json')
             self.write(json.dumps(response))
 
@@ -219,6 +222,7 @@ class SpiderSettingsInstanceHandler(tornado.web.RequestHandler):
             spider_setting.setting_value = self.request.body
             session.add(spider_setting)
             session.commit()
+
 
     def get(self, project, spider, setting_key):
         with session_scope() as session:
