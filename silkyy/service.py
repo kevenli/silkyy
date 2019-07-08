@@ -311,6 +311,11 @@ class SpiderRunComplete(tornado.web.RequestHandler):
         pipe.delete(run_seen_key)
         pipe.execute()
 
+        response = "OK"
+        self.set_header('Content-Type', 'application/json')
+        self.write(json.dumps(response))
+
+
 def make_app(redis_conn, config, id_worker=None, app_context_provider=None):
     if app_context_provider is None:
         app_context_provider = ApplicationContextProvider()
