@@ -188,7 +188,7 @@ class SpiderSettingsHandler(tornado.web.RequestHandler):
                     spider_setting = SpiderSettings()
                     spider_setting.spider_id = spider_obj.id
                     spider_setting.setting_key = setting_key
-                spider_setting.setting_value = self.request.body
+                spider_setting.setting_value = setting_value
                 session.add(spider_setting)
                 session.commit()
 
