@@ -4,3 +4,4 @@ sqlalchemy
 sqlalchemy-migrate
 apscheduler
 six>=1.12
+requests
