@@ -10,7 +10,8 @@ class SilkyyClient(object):
 
     def _request_json(self, path, method='GET', data=None):
         request_url = urljoin(self.api_base, path)
-        headers = {'X-Silkyy-AppKey': self.app_key}
+        headers = {'X-Silkyy-AppKey': self.app_key,
+                   'X-Silkyy-AppSecret': self.app_secret}
         response = requests.request(method=method, url=request_url, data=data, headers=headers)
         response.raise_for_status()
         return json.loads(response.content)
