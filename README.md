@@ -41,7 +41,14 @@ Silkyy apis don't support encrypting to pretect data sniffing, the best way to a
 TLS.
 
 
+### Use Silkyy DupeFilter in scrapy
 
+add two config in settings.py
+
+    DUPEFILTER_CLASS = silkyy.middleware.scrapy.dupefilter.SilkyyDupeFilter
+    SILKYY_BASEURL = http://localhost:8889/
+    
+which silkyy_baseurl should be pointed to your silkyy base url.
 
 
 
