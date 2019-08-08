@@ -29,7 +29,7 @@ class SilkyyDupeFilter(BaseDupeFilter):
         :param settings:
         :return:
         '''
-        logger.info('SilkyyDupeFilter from_settings')
+        logger.debug('SilkyyDupeFilter from_settings')
         project = settings.get('BOT_NAME')
         spider = 'spider'
         client = SilkyyClient(settings.get('SILKYY_BASEURL'))
@@ -37,7 +37,7 @@ class SilkyyDupeFilter(BaseDupeFilter):
 
     @classmethod
     def from_crawler(cls, crawler):
-        logger.info('SilkyyDupeFilter from_crawler')
+        logger.debug('SilkyyDupeFilter from_crawler')
         return cls.from_spider(crawler.spider)
 
     @classmethod
