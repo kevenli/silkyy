@@ -51,5 +51,29 @@ add two config in settings.py
 which silkyy_baseurl should be pointed to your silkyy base url.
 
 
+### Docker 
+
+    version: '3'
+    services:
+      redis:
+        image: "redis:alpine"
+        volumes:
+          - './redis/data:/data:z'
+        ports:
+          - "6379:6379"
+        command: redis-server --appendonly yes
+      silkyy:
+        image: kevenli/silkyy
+        volumes:
+          - "./silkyy/:/silkyy/:z"
+        ports:
+          - 8889:8889
+        links:
+          - redis
+        environment:
+          - SILKYY_REDIS_URL=redis://redis:6379/0
+
+
+
 
 
