@@ -40,28 +40,26 @@ class Config(object):
         sources = ['conf/silkyy.conf']
         return sources
 
-    def _getany(self, method, option, default):
+    def get(self, option, default=None):
+        env_key = 'SILKYY_' + option.replace('.', '_').upper()
         try:
-            return method(self.SECTION, option)
+            return os.getenv(env_key) or self.cp.get(self.SECTION, option)
         except (NoSectionError, NoOptionError):
             if default is not None:
                 return default
             raise
 
-    def __getitem__(self, key):
-        return self.get(key)
-
-    def get(self, option, default=None):
-        return self._getany(self.cp.get, option, default)
+    def _get(self, option, conv, default=None):
+        return conv(self.get(option, default))
 
     def getint(self, option, default=None):
-        return self._getany(self.cp.getint, option, default)
-
-    def getfloat(self, option, default=None):
-        return self._getany(self.cp.getfloat, option, default)
+        return self._get(option, int, default)
 
     def getboolean(self, option, default=None):
-        return self._getany(self.cp.getboolean, option, default)
+        return self._get(option, str2bool, default)
+
+    def getfloat(self, option, default=None):
+        return self._get(option, float, default)
 
     def items(self, section, default=None):
         try:
