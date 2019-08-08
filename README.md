@@ -45,8 +45,8 @@ TLS.
 
 add two config in settings.py
 
-    DUPEFILTER_CLASS = silkyy.middleware.scrapy.dupefilter.SilkyyDupeFilter
-    SILKYY_BASEURL = http://localhost:8889/
+    DUPEFILTER_CLASS = "silkyy.middleware.scrapy.dupefilter.SilkyyDupeFilter"
+    SILKYY_BASEURL = "http://localhost:8889/"
     
 which silkyy_baseurl should be pointed to your silkyy base url.
 
