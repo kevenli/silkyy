@@ -12,13 +12,14 @@ class SilkyyDupeFilter(BaseDupeFilter):
     '''
     logger = logger
 
-    def __init__(self, project, spider, client, settings, debug=False):
+    def __init__(self, project, spider, client, settings, debug=False, stats=None):
         self.project = project
         self.spider = spider
         self.client = client
         self.debug = debug
         self.settings = settings
         self.logdupes = True
+        self.stats = stats
 
     @classmethod
     def from_settings(cls, settings):
@@ -47,7 +48,7 @@ class SilkyyDupeFilter(BaseDupeFilter):
         client = SilkyyClient(settings.get('SILKYY_BASEURL'))
 
         debug = settings.getbool('DUPEFILTER_DEBUG')
-        return cls(project, spider.name, client, settings, debug=debug)
+        return cls(project, spider.name, client, settings, debug=debug, stats=spider.crawler.stats)
 
     def request_seen(self, request):
         """Returns True if request was already seen.
@@ -87,7 +88,18 @@ class SilkyyDupeFilter(BaseDupeFilter):
         self.silkyy_spider_run = self.silkyy_spider.run()
 
     def close(self, reason=''):
-        if reason == 'finished':
+        if reason != 'finished':
+            return
+
+        error_log_count = self.stats.get_value('log_count/ERROR', 0) if self.stats else 0
+        critical_log_count =  self.stats.get_value('log_count/CRITICAL', 0) if self.stats else 0
+        error_count = error_log_count + critical_log_count
+        commit_on_error = self.settings.getbool('SILKYY_COMMIT_ON_ERROR', False)
+
+        logger.debug('Error count: %d' % error_count)
+        logger.debug('SILKYY_COMMIT_ON_ERROR: %s' % commit_on_error)
+        if commit_on_error or error_count == 0:
+            logger.debug('silkyy committing spider run.')
             self.silkyy_spider_run.complete()
 
     def clear(self):
