@@ -99,7 +99,7 @@ class SilkyyDupeFilter(BaseDupeFilter):
         logger.debug('Error count: %d' % error_count)
         logger.debug('SILKYY_COMMIT_ON_ERROR: %s' % commit_on_error)
         if commit_on_error or error_count == 0:
-            logger.debug('silkyy committing spider run.')
+            logger.info('Committing silkyy spider state.')
             self.silkyy_spider_run.complete()
 
     def clear(self):
